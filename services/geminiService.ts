@@ -21,8 +21,7 @@ const getValidPool = (): string[] => {
 
   // Fallback to single key if pool is empty or invalid
   const legacyKey = localStorage.getItem('GEMINI_API_KEY');
-  // Only use process.env.API_KEY if we are not in a strict client-only context where it might be undefined
-  const envKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  const envKey = process.env.API_KEY;
   
   const fallback = legacyKey || envKey;
   return fallback ? [fallback] : [];
@@ -65,14 +64,17 @@ export const generateMetadata = async (
     required: ["title", "description", "tags", ...(market === Market.TEEPUBLIC ? ["mainTag"] : [])]
   };
 
-  // Internal function to handle retries with rotation
   const attemptRequest = async (retriesLeft: number): Promise<ApiResponse> => {
-    const apiKey = pool[currentKeyIndex % pool.length];
+    // Ensure index is within bounds of current pool
+    const poolSize = pool.length;
+    const apiKey = pool[currentKeyIndex % poolSize];
+    
+    // Initialize a fresh instance for each attempt to ensure the correct key is used
     const ai = new GoogleGenAI({ apiKey });
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash-exp", // Using a stable flash model for fast multi-key processing
+        model: "gemini-3-flash-preview",
         contents: [
           {
             parts: [
@@ -89,19 +91,21 @@ export const generateMetadata = async (
       });
 
       const text = response.text;
-      if (!text) throw new Error("Empty response from AI engine");
+      if (!text) throw new Error("Empty response from Gemini engine");
       
       return JSON.parse(text) as ApiResponse;
       
     } catch (error: any) {
-      console.warn(`Key Rotation: Key at index ${currentKeyIndex % pool.length} failed.`, error.message);
+      console.warn(`Request failed with key index ${currentKeyIndex % poolSize}:`, error.message);
       
+      // Error classification
       const isRateLimit = error.message?.includes('429') || error.message?.toLowerCase().includes('too many requests');
-      const isOverload = error.message?.includes('500') || error.message?.includes('503');
+      const isOverload = error.message?.includes('500') || error.message?.includes('503') || error.message?.toLowerCase().includes('overloaded');
       const isInvalid = error.message?.includes('401') || error.message?.includes('API_KEY_INVALID');
 
       if ((isRateLimit || isOverload || isInvalid) && retriesLeft > 1) {
-        currentKeyIndex++; // Increment to next key in pool
+        currentKeyIndex = (currentKeyIndex + 1) % poolSize;
+        console.info(`Rotating to next API key (Index: ${currentKeyIndex})...`);
         return attemptRequest(retriesLeft - 1); 
       }
       
@@ -109,6 +113,6 @@ export const generateMetadata = async (
     }
   };
 
-  // Allow one full rotation of the pool
+  // Attempt the request, allowing for one full rotation of the pool
   return attemptRequest(pool.length);
 };

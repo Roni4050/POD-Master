@@ -27,20 +27,20 @@ const App: React.FC = () => {
     }));
 
     setFiles(prev => [...prev, ...newFiles]);
-    // Reset input value to allow re-uploading the same file if needed
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Use standard FileReader to get base64 data for the Gemini API
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.readAsDataURL(file);
       reader.onload = () => {
         const result = reader.result as string;
-        const base64String = result.includes(',') ? result.split(',')[1] : result;
+        const base64String = result.split(',')[1];
         resolve(base64String);
       };
-      reader.onerror = error => reject(error);
+      reader.onerror = () => reject(new DOMException("Problem parsing input file."));
+      reader.readAsDataURL(file);
     });
   };
 
@@ -66,9 +66,9 @@ const App: React.FC = () => {
       let errorMessage = err.message || 'Failed to generate metadata';
       
       if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('401')) {
-        errorMessage = 'Invalid API key. Please check your Settings.';
+        errorMessage = 'Invalid API key found in pool. Please check Settings.';
       } else if (err.message?.includes('429')) {
-        errorMessage = 'Rate limit exceeded. Try adding more keys to your pool.';
+        errorMessage = 'All keys in pool have reached rate limits. Try again later.';
       }
 
       setFiles(prev => prev.map(f => f.id === item.id ? { 
@@ -85,7 +85,7 @@ const App: React.FC = () => {
     
     const pendingFiles = files.filter(f => f.status === 'pending' || f.status === 'error');
     
-    // Using a sequential loop to respect per-key rate limits more gracefully
+    // Sequential processing is safer for rate limits and rotation logic
     for (const file of pendingFiles) {
       await processFile(file);
     }

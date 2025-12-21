@@ -1,5 +1,5 @@
 {
   "name": "POD Master Metadata Generator",
-  "description": "A professional bulk metadata generator for Spreadshirt and TeePublic. Analyze images using Gemini AI to generate SEO-optimized titles, descriptions, and tags for Print-on-Demand products.",
+  "description": "Professional bulk metadata generator for Spreadshirt and TeePublic optimized for Gemini AI.",
   "requestFramePermissions": []
 }
