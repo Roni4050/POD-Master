@@ -10,13 +10,22 @@ Maintain a professional, creative tone that appeals to niche buyers.`;
 let currentKeyIndex = 0;
 
 const getValidPool = (): string[] => {
-  const pool = JSON.parse(localStorage.getItem('GEMINI_API_POOL') || '[]');
-  // Fallback to single key if pool is empty
-  if (pool.length === 0) {
-    const legacyKey = localStorage.getItem('GEMINI_API_KEY') || process.env.API_KEY;
-    return legacyKey ? [legacyKey] : [];
+  try {
+    const pool = JSON.parse(localStorage.getItem('GEMINI_API_POOL') || '[]');
+    if (Array.isArray(pool) && pool.length > 0) {
+      return pool;
+    }
+  } catch (e) {
+    console.error("Error parsing key pool:", e);
   }
-  return pool;
+
+  // Fallback to single key if pool is empty or invalid
+  const legacyKey = localStorage.getItem('GEMINI_API_KEY');
+  // Only use process.env.API_KEY if we are not in a strict client-only context where it might be undefined
+  const envKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  
+  const fallback = legacyKey || envKey;
+  return fallback ? [fallback] : [];
 };
 
 export const generateMetadata = async (
@@ -25,7 +34,9 @@ export const generateMetadata = async (
   market: Market
 ): Promise<ApiResponse> => {
   const pool = getValidPool();
-  if (pool.length === 0) throw new Error("No API keys found in the pool. Please check Settings.");
+  if (pool.length === 0) {
+    throw new Error("No API keys found. Please add your Gemini API keys in Settings.");
+  }
 
   const prompt = market === Market.SPREADSHIRT 
     ? `Analyze this POD design for Spreadshirt:
@@ -55,13 +66,13 @@ export const generateMetadata = async (
   };
 
   // Internal function to handle retries with rotation
-  const attemptRequest = async (retries: number = pool.length): Promise<ApiResponse> => {
+  const attemptRequest = async (retriesLeft: number): Promise<ApiResponse> => {
     const apiKey = pool[currentKeyIndex % pool.length];
     const ai = new GoogleGenAI({ apiKey });
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash-exp", // Using a stable flash model for fast multi-key processing
         contents: [
           {
             parts: [
@@ -78,26 +89,26 @@ export const generateMetadata = async (
       });
 
       const text = response.text;
-      if (!text) throw new Error("No response from AI");
+      if (!text) throw new Error("Empty response from AI engine");
+      
       return JSON.parse(text) as ApiResponse;
       
     } catch (error: any) {
-      console.warn(`Key at index ${currentKeyIndex % pool.length} failed:`, error.message);
+      console.warn(`Key Rotation: Key at index ${currentKeyIndex % pool.length} failed.`, error.message);
       
-      // Auto-switch on rate limit or overload
-      const isRateLimit = error.message?.includes('429') || error.message?.includes('Too Many Requests');
-      const isOverload = error.message?.includes('500') || error.message?.includes('Internal Server Error');
+      const isRateLimit = error.message?.includes('429') || error.message?.toLowerCase().includes('too many requests');
+      const isOverload = error.message?.includes('500') || error.message?.includes('503');
       const isInvalid = error.message?.includes('401') || error.message?.includes('API_KEY_INVALID');
 
-      if ((isRateLimit || isOverload || isInvalid) && retries > 1) {
-        currentKeyIndex++; // Move to next key in pool
-        console.info(`Switching to API key at index ${currentKeyIndex % pool.length}...`);
-        return attemptRequest(retries - 1); // Recursive retry with new key
+      if ((isRateLimit || isOverload || isInvalid) && retriesLeft > 1) {
+        currentKeyIndex++; // Increment to next key in pool
+        return attemptRequest(retriesLeft - 1); 
       }
       
       throw error;
     }
   };
 
-  return attemptRequest();
+  // Allow one full rotation of the pool
+  return attemptRequest(pool.length);
 };

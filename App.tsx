@@ -27,6 +27,8 @@ const App: React.FC = () => {
     }));
 
     setFiles(prev => [...prev, ...newFiles]);
+    // Reset input value to allow re-uploading the same file if needed
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -34,7 +36,8 @@ const App: React.FC = () => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => {
-        const base64String = (reader.result as string).split(',')[1];
+        const result = reader.result as string;
+        const base64String = result.includes(',') ? result.split(',')[1] : result;
         resolve(base64String);
       };
       reader.onerror = error => reject(error);
@@ -59,12 +62,13 @@ const App: React.FC = () => {
         } 
       } : f));
     } catch (err: any) {
-      console.error(err);
-      let errorMessage = 'Failed to generate metadata';
+      console.error("Processing Error:", err);
+      let errorMessage = err.message || 'Failed to generate metadata';
       
-      // Basic check for API key related errors to prompt user
-      if (err.message?.includes('Requested entity was not found')) {
-        errorMessage = 'Invalid API key. Please reconfigure in Settings.';
+      if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('401')) {
+        errorMessage = 'Invalid API key. Please check your Settings.';
+      } else if (err.message?.includes('429')) {
+        errorMessage = 'Rate limit exceeded. Try adding more keys to your pool.';
       }
 
       setFiles(prev => prev.map(f => f.id === item.id ? { 
@@ -81,6 +85,7 @@ const App: React.FC = () => {
     
     const pendingFiles = files.filter(f => f.status === 'pending' || f.status === 'error');
     
+    // Using a sequential loop to respect per-key rate limits more gracefully
     for (const file of pendingFiles) {
       await processFile(file);
     }
@@ -118,7 +123,7 @@ const App: React.FC = () => {
         <main className="flex-1 p-6 overflow-y-auto custom-scrollbar bg-slate-50">
           <div className="max-w-6xl mx-auto space-y-8">
             <div className="text-center">
-              <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Bulk Metadata Generator</h2>
+              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Bulk Metadata Generator</h2>
               <p className="text-slate-500 mt-2 font-medium">Analyze your designs and generate professional SEO content for {market}.</p>
             </div>
 
