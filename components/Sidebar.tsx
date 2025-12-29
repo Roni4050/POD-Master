@@ -38,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div>
                 <span className={`font-bold block ${market === Market.SPREADSHIRT ? 'text-blue-900' : 'text-slate-700'}`}>Spreadshirt</span>
-                <span className="text-[10px] opacity-70 font-medium">50 chars title / 200 chars desc</span>
+                <span className="text-[10px] opacity-70 font-medium">Internal Search Focus</span>
               </div>
             </div>
           </button>
@@ -57,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div>
                 <span className={`font-bold block ${market === Market.TEEPUBLIC ? 'text-blue-900' : 'text-slate-700'}`}>TeePublic</span>
-                <span className="text-[10px] opacity-70 font-medium">Main tag + optimized keywords</span>
+                <span className="text-[10px] opacity-70 font-medium">Long-tail Niche Coverage</span>
               </div>
             </div>
           </button>
@@ -65,32 +65,36 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="space-y-4">
-        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] block">Platform Rules</label>
+        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] block">SEO Strategy</label>
         <div className="bg-slate-900 rounded-2xl p-5 text-xs text-slate-300 border border-slate-800 shadow-inner">
           {market === Market.SPREADSHIRT ? (
             <div className="space-y-3">
               <div className="flex gap-3">
                 <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
-                <p>Strict <span className="text-white font-bold">50 Character</span> Title limit for search indexing.</p>
+                <p>Titles use <span className="text-white font-bold">Subject + Intent</span> structure.</p>
               </div>
               <div className="flex gap-3">
                 <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
-                <p>Exactly <span className="text-white font-bold">25 Tags</span> recommended for internal ranking.</p>
+                <p>Keywords target <span className="text-white font-bold">Gift Categories</span> and styles.</p>
               </div>
               <div className="flex gap-3">
                 <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
-                <p><span className="text-white font-bold">200 Character</span> Description for mobile clarity.</p>
+                <p>Exactly <span className="text-white font-bold">25 Tags</span> for internal rank stability.</p>
               </div>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="flex gap-3">
                 <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
-                <p><span className="text-white font-bold">Main Tag</span> determines your category relevance.</p>
+                <p><span className="text-white font-bold">Main Tag</span> handles core search volume.</p>
               </div>
               <div className="flex gap-3">
                 <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
-                <p>Support for <span className="text-white font-bold">Long-tail</span> keywords in secondary tags.</p>
+                <p>Secondary tags focus on <span className="text-white font-bold">Artistic context</span> and sub-niches.</p>
+              </div>
+              <div className="flex gap-3">
+                <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
+                <p>Avoids keyword <span className="text-white font-bold">Cannibalization</span> between tags.</p>
               </div>
             </div>
           )}

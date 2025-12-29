@@ -4,6 +4,19 @@ export enum Market {
   TEEPUBLIC = 'TeePublic'
 }
 
+export type ProviderType = 'mistral' | 'groq';
+
+export interface ProviderStatus {
+  isActive: boolean;
+  status: 'active' | 'rate-limited' | 'error' | 'disabled';
+  lastUsed?: number;
+}
+
+export interface ProviderConfig {
+  mistral: ProviderStatus & { apiKey?: string };
+  groq: ProviderStatus & { apiKey?: string };
+}
+
 export interface PodMetadata {
   title: string;
   description: string;
@@ -25,10 +38,4 @@ export interface ApiResponse {
   description: string;
   tags: string[];
   mainTag?: string;
-}
-
-export interface KeyPool {
-  gemini: string[];
-  mistral: string[];
-  groq: string[];
 }

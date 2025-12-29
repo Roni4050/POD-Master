@@ -1,6 +1,6 @@
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Market, FileItem } from './types';
+import React, { useState, useRef, useEffect } from 'react';
+import { Market, FileItem, ProviderConfig, ProviderType } from './types';
 import { generateMetadata } from './services/aiService';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -14,6 +14,26 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
+  const [providerConfigs, setProviderConfigs] = useState<ProviderConfig>(() => {
+    const saved = localStorage.getItem('pod_master_configs_v3');
+    if (saved) return JSON.parse(saved);
+    return {
+      mistral: { isActive: true, status: 'disabled', apiKey: '' },
+      groq: { isActive: true, status: 'disabled', apiKey: '' }
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('pod_master_configs_v3', JSON.stringify(providerConfigs));
+  }, [providerConfigs]);
+
+  const updateProviderStatus = (provider: ProviderType, status: 'active' | 'rate-limited' | 'error' | 'disabled') => {
+    setProviderConfigs(prev => ({
+      ...prev,
+      [provider]: { ...prev[provider], status }
+    }));
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,12 +53,8 @@ const App: React.FC = () => {
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        const base64String = result.split(',')[1];
-        resolve(base64String);
-      };
-      reader.onerror = () => reject(new Error("Problem parsing input file."));
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = () => reject(new Error("File parsing error"));
       reader.readAsDataURL(file);
     });
   };
@@ -48,7 +64,7 @@ const App: React.FC = () => {
     
     try {
       const base64 = await fileToBase64(item.file);
-      const metadata = await generateMetadata(base64, item.file.type, market);
+      const metadata = await generateMetadata(base64, item.file.type, market, providerConfigs, updateProviderStatus);
       
       setFiles(prev => prev.map(f => f.id === item.id ? { 
         ...f, 
@@ -61,31 +77,29 @@ const App: React.FC = () => {
         } 
       } : f));
     } catch (err: any) {
-      console.error("Processing Error:", err);
-      let errorMessage = err.message || 'Failed to generate metadata';
-      
-      if (err.message?.includes('429')) {
-        errorMessage = 'Rate limit reached on current provider keys. Rotate or add more keys.';
-      }
-
       setFiles(prev => prev.map(f => f.id === item.id ? { 
         ...f, 
         status: 'error', 
-        error: errorMessage
+        error: err.message || "AI Analysis Failed"
       } : f));
     }
   };
 
   const generateAll = async () => {
     if (isProcessing) return;
-    setIsProcessing(true);
     
+    const hasKeys = providerConfigs.mistral.apiKey || providerConfigs.groq.apiKey;
+    if (!hasKeys) {
+      alert("Please configure Mistral or Groq API key in Settings.");
+      setIsSettingsOpen(true);
+      return;
+    }
+
+    setIsProcessing(true);
     const pendingFiles = files.filter(f => f.status === 'pending' || f.status === 'error');
     for (const file of pendingFiles) {
       await processFile(file);
-      await new Promise(r => setTimeout(r, 300)); // Safer spacing for external APIs
     }
-    
     setIsProcessing(false);
   };
 
@@ -104,7 +118,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <Header onOpenSettings={() => setIsSettingsOpen(true)} />
+      <Header onOpenSettings={() => setIsSettingsOpen(true)} configs={providerConfigs} />
       
       <div className="flex flex-1 overflow-hidden relative">
         <Sidebar 
@@ -118,23 +132,20 @@ const App: React.FC = () => {
         
         <main className="flex-1 p-6 overflow-y-auto custom-scrollbar bg-slate-50">
           <div className="max-w-6xl mx-auto space-y-8">
-            <div className="text-center pt-4">
-              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Bulk Metadata Generator</h2>
-              <p className="text-slate-500 mt-2 font-medium">Analyze your designs and generate professional SEO content for {market}.</p>
+            <div className="text-center pt-8">
+              <h2 className="text-4xl font-black text-slate-800 tracking-tight">Bulk Metadata Suite</h2>
+              <p className="text-slate-500 mt-2 font-medium">Automatic SEO Generation for {market}.</p>
               <div className="mt-4 flex items-center justify-center gap-4">
-                 <span className="flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-orange-100 shadow-sm">
-                   <i className="fas fa-bolt"></i> Groq Powered
+                 <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-200">
+                   <i className="fas fa-microchip mr-1"></i> Pixtral & Llama 3.2 Vision
                  </span>
-                 <span className="flex items-center gap-1.5 px-3 py-1 bg-purple-50 text-purple-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-purple-100 shadow-sm">
-                   <i className="fas fa-eye"></i> Mistral Large Analysis
+                 <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100">
+                   <i className="fas fa-check-double mr-1"></i> SEO Compliant
                  </span>
               </div>
             </div>
 
-            <FileUploader 
-              fileInputRef={fileInputRef} 
-              onUpload={handleFileUpload} 
-            />
+            <FileUploader fileInputRef={fileInputRef} onUpload={handleFileUpload} />
 
             <MetadataGrid 
               files={files} 
@@ -148,7 +159,9 @@ const App: React.FC = () => {
 
       <SettingsModal 
         isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
+        onClose={() => setIsSettingsOpen(false)}
+        configs={providerConfigs}
+        onUpdate={setProviderConfigs}
       />
     </div>
   );

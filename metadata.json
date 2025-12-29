@@ -1,5 +1,5 @@
 {
   "name": "POD Master Metadata Generator",
-  "description": "Professional bulk metadata generator for Spreadshirt and TeePublic optimized for Gemini AI.",
+  "description": "Professional bulk metadata generator for Spreadshirt and TeePublic optimized for Mistral and Groq AI.",
   "requestFramePermissions": []
 }

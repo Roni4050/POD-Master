@@ -26,7 +26,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ fileInputRef, onUpload }) =
           <i className="fas fa-file-upload text-slate-400 text-3xl group-hover:text-white"></i>
         </div>
         <h3 className="text-2xl font-black text-slate-800 tracking-tight">Import Artwork</h3>
-        <p className="text-slate-400 mt-2 font-medium max-w-sm mx-auto">Drop PNG or JPEG files here. Bulk processing will automatically utilize Gemini AI for SEO metadata.</p>
+        <p className="text-slate-400 mt-2 font-medium max-w-sm mx-auto">Drop PNG or JPEG files here. Bulk processing will automatically utilize advanced AI vision for SEO metadata.</p>
         
         <div className="mt-8 flex items-center justify-center gap-6">
           <div className="flex items-center gap-2">

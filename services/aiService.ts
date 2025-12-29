@@ -1,126 +1,125 @@
 
-import { Market, ApiResponse, KeyPool } from "../types";
+import { Market, ApiResponse, ProviderConfig, ProviderType } from "../types";
 
-const SYSTEM_INSTRUCTION = `You are a world-class SEO specialist for Print-on-Demand (POD) platforms like Spreadshirt and TeePublic. 
-Your primary goal is to generate metadata that maximizes search visibility. 
-Strictly adhere to platform constraints. Return ONLY valid JSON.
+const SYSTEM_INSTRUCTION = `You are a world-class Print-on-Demand (POD) SEO expert.
+Your goal is to generate highly optimized metadata for Spreadshirt and TeePublic.
 
-CRITICAL: NEVER include the words 'T-Shirt', 'Shirt', 'Hoodie', or any other garment/product names in the title, description, or tags. The platform adds these automatically. Focus exclusively on the design subject, style, and niche.
-
-Spreadshirt: Title max 50 chars, Desc max 200 chars, exactly 25 highly relevant SEO keywords in an array.
-TeePublic: Catchy title, detailed desc, one mainTag, and exactly 25 secondary tags.`;
-
-let currentGroqIndex = 0;
-let currentMistralIndex = 0;
-
-const getPool = (): KeyPool => {
-  try {
-    const pool = JSON.parse(localStorage.getItem('POD_MASTER_KEY_POOL') || '{}');
-    return {
-      gemini: [], // Permanently disabled
-      mistral: pool.mistral || [],
-      groq: pool.groq || []
-    };
-  } catch (e) {
-    return { gemini: [], mistral: [], groq: [] };
-  }
-};
+CORE RULES:
+1. NO CLOTHING WORDS: Never use "T-shirt", "Shirt", "Hoodie", "Apparel", or "Clothing".
+2. SPREADSHIRT: Title (max 50 chars), Description (max 200 chars), exactly 25 tags.
+3. TEEPUBLIC: 1 Main Tag (Core Anchor), 25 Secondary Tags.
+4. ANTI-CANNIBALIZATION: Main Tag must not appear in secondary tags.
+5. VISUAL STORYTELLING: Write evocative, narrative descriptions.`;
 
 export const generateMetadata = async (
-  base64Image: string, 
-  mimeType: string, 
-  market: Market
+  base64Image: string,
+  mimeType: string,
+  market: Market,
+  configs: ProviderConfig,
+  updateStatus: (provider: ProviderType, status: 'active' | 'rate-limited' | 'error' | 'disabled') => void
 ): Promise<ApiResponse> => {
-  const pool = getPool();
-  const hasGroq = pool.groq.length > 0;
-  const hasMistral = pool.mistral.length > 0;
-
-  if (!hasGroq && !hasMistral) {
-    throw new Error("No API keys found for Groq or Mistral. Please add keys in Settings to process designs.");
-  }
-
-  // Determine provider: Default to Groq for speed, fallback to Mistral
-  const provider = hasGroq ? 'groq' : 'mistral';
-  const keys = provider === 'groq' ? pool.groq : pool.mistral;
   
-  const attemptRequest = async (retriesLeft: number): Promise<ApiResponse> => {
-    const index = provider === 'groq' ? currentGroqIndex : currentMistralIndex;
-    const apiKey = keys[index % keys.length];
-
-    const prompt = market === Market.SPREADSHIRT 
-      ? `Analyze this artwork and provide optimized SEO metadata for Spreadshirt:
-         - title: catchy title, max 50 characters
-         - description: engaging sales pitch, max 200 characters
-         - tags: exactly 25 niche-specific keywords in an array
-         Return as JSON.`
-      : `Analyze this artwork and provide optimized SEO metadata for TeePublic:
-         - title: creative searchable title
-         - description: detailed product description
-         - mainTag: the single most important niche keyword
-         - tags: exactly 25 secondary keywords in an array
-         Return as JSON.`;
-
-    const url = provider === 'groq' 
-      ? "https://api.groq.com/openai/v1/chat/completions"
-      : "https://api.mistral.ai/v1/chat/completions";
-
-    const model = provider === 'groq'
-      ? "llama-3.2-11b-vision-preview"
-      : "pixtral-large-latest"; // Using the large analysis model as requested
-
+  // Try Mistral first
+  if (configs.mistral.isActive && configs.mistral.apiKey) {
     try {
-      const response = await fetch(url, {
+      const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${configs.mistral.apiKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: model,
+          model: "pixtral-large-latest",
           messages: [
-            {
-              role: "system",
-              content: SYSTEM_INSTRUCTION
-            },
+            { role: "system", content: SYSTEM_INSTRUCTION },
             {
               role: "user",
               content: [
-                { type: "text", text: prompt },
+                {
+                  type: "text",
+                  text: `Analyze this design for ${market}. 
+                  IMPORTANT: Refine your analysis to identify unique artistic styles (e.g., risograph, charcoal, vector minimalism, synthwave) and specific medium/texture keywords (e.g., rough grain, watercolor bleeds, half-tone dots, distressed ink). 
+                  Use these insights to generate 25 highly descriptive tags.
+                  Return JSON: { "title": "...", "description": "...", "tags": ["...", "..."], "mainTag": "..." }`
+                },
                 {
                   type: "image_url",
-                  image_url: {
-                    url: `data:${mimeType};base64,${base64Image}`
-                  }
+                  image_url: { url: `data:${mimeType};base64,${base64Image}` }
                 }
               ]
             }
           ],
-          response_format: { type: "json_object" },
-          temperature: 0.7
+          response_format: { type: "json_object" }
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      if (response.ok) {
+        const data = await response.json();
+        const result = JSON.parse(data.choices[0].message.content) as ApiResponse;
+        updateStatus('mistral', 'active');
+        return finalizeResult(result, market);
+      } else {
+        throw new Error(`Mistral API error: ${response.status}`);
       }
-
-      const data = await response.json();
-      const content = data.choices[0].message.content;
-      return JSON.parse(content) as ApiResponse;
-
-    } catch (error: any) {
-      console.warn(`${provider} request failed:`, error.message);
-
-      const isRateLimit = error.message.includes('429') || error.message.toLowerCase().includes('rate');
-      if (isRateLimit && retriesLeft > 1) {
-        if (provider === 'groq') currentGroqIndex++;
-        else currentMistralIndex++;
-        return attemptRequest(retriesLeft - 1);
-      }
-      throw error;
+    } catch (err) {
+      console.warn("Mistral failed, falling back to Groq...", err);
+      updateStatus('mistral', 'error');
     }
-  };
+  }
 
-  return attemptRequest(keys.length);
+  // Fallback to Groq
+  if (configs.groq.isActive && configs.groq.apiKey) {
+    try {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${configs.groq.apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "llama-3.2-11b-vision-preview",
+          messages: [
+            { role: "system", content: SYSTEM_INSTRUCTION },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `Analyze for ${market}. Identify style and subjects. Return JSON: { "title": "...", "description": "...", "tags": [], "mainTag": "..." }`
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: `data:${mimeType};base64,${base64Image}` }
+                }
+              ]
+            }
+          ],
+          response_format: { type: "json_object" }
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const result = JSON.parse(data.choices[0].message.content) as ApiResponse;
+        updateStatus('groq', 'active');
+        return finalizeResult(result, market);
+      } else {
+        throw new Error(`Groq API error: ${response.status}`);
+      }
+    } catch (err) {
+      updateStatus('groq', 'error');
+      throw err;
+    }
+  }
+
+  throw new Error("No active AI provider with valid API key found.");
 };
+
+function finalizeResult(result: ApiResponse, market: Market): ApiResponse {
+  if (market === Market.SPREADSHIRT) {
+    result.title = result.title.substring(0, 50).trim();
+    result.description = result.description.substring(0, 200).trim();
+  }
+  result.tags = Array.from(new Set(result.tags)).slice(0, 25);
+  return result;
+}
