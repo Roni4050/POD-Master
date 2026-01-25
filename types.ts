@@ -1,7 +1,7 @@
-
 export enum Market {
   SPREADSHIRT = 'Spreadshirt',
-  TEEPUBLIC = 'TeePublic'
+  TEEPUBLIC = 'TeePublic',
+  ZAZZLE = 'Zazzle'
 }
 
 export type ProviderType = 'mistral' | 'groq';

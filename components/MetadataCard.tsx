@@ -22,16 +22,23 @@ const MetadataCard: React.FC<MetadataCardProps> = ({ item, market, onRegenerate,
   const isProcessing = item.status === 'processing';
   const isError = item.status === 'error';
 
-  const TITLE_LIMIT = 50;
-  const DESC_LIMIT = 200;
+  const TITLE_LIMIT = market === Market.ZAZZLE ? 100 : 50;
+  const DESC_LIMIT = market === Market.ZAZZLE ? 500 : 200;
+
+  // Determine error style
+  const isRateLimit = item.error?.toLowerCase().includes('rate limit');
+  const isKeyError = item.error?.toLowerCase().includes('key');
 
   return (
-    <div className={`bg-white rounded-[2rem] border card-hover animate-in overflow-hidden ${
-      isProcessing ? 'border-blue-400 ring-4 ring-blue-50 shadow-none' : 'border-slate-200'
+    <div className={`bg-white rounded-[2rem] border card-hover animate-in overflow-hidden transition-all duration-300 ${
+      isProcessing ? 'border-blue-400 ring-4 ring-blue-50 shadow-none scale-[1.01]' : 
+      isError ? 'border-red-200 bg-red-50/10' : 'border-slate-200'
     }`}>
       <div className="flex flex-col md:flex-row h-full min-h-[320px]">
         {/* Design Canvas */}
-        <div className="w-full md:w-72 bg-slate-50 relative group border-r border-slate-100 flex items-center justify-center shrink-0">
+        <div className={`w-full md:w-72 relative group border-r border-slate-100 flex items-center justify-center shrink-0 ${
+          isError ? 'bg-red-50/20' : 'bg-slate-50'
+        }`}>
           <img 
             src={item.previewUrl} 
             alt="POD Design" 
@@ -88,18 +95,36 @@ const MetadataCard: React.FC<MetadataCardProps> = ({ item, market, onRegenerate,
           )}
 
           {isError && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                <i className="fas fa-exclamation-circle text-2xl"></i>
+            <div className="text-center py-8">
+              <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4 ${
+                isRateLimit ? 'bg-orange-50 text-orange-500' : 'bg-red-50 text-red-500'
+              }`}>
+                <i className={`fas ${isRateLimit ? 'fa-clock' : isKeyError ? 'fa-key' : 'fa-exclamation-triangle'} text-2xl`}></i>
               </div>
-              <h4 className="text-red-600 font-bold mb-2">Analysis Failed</h4>
-              <p className="text-slate-500 text-sm max-w-xs mx-auto mb-6">{item.error || 'Unknown error occurred.'}</p>
-              <button 
-                onClick={onRegenerate}
-                className="bg-slate-900 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all"
-              >
-                Retry Generation
-              </button>
+              <h4 className={`font-black text-lg tracking-tight mb-2 ${
+                isRateLimit ? 'text-orange-600' : 'text-red-600'
+              }`}>
+                {isRateLimit ? 'Rate Limit Reached' : isKeyError ? 'Authentication Error' : 'Analysis Failed'}
+              </h4>
+              <div className="bg-white/50 border border-slate-100 rounded-2xl p-4 max-w-md mx-auto mb-6">
+                <p className="text-slate-600 text-sm font-medium leading-relaxed">
+                  {item.error || 'An unexpected error occurred during processing.'}
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3">
+                <button 
+                  onClick={onRegenerate}
+                  className="bg-slate-900 text-white px-8 py-3 rounded-2xl text-sm font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-95"
+                >
+                  <i className="fas fa-redo-alt mr-2"></i> Try Again
+                </button>
+                <button 
+                  onClick={onRemove}
+                  className="bg-white text-slate-400 px-6 py-3 rounded-2xl text-sm font-bold border border-slate-100 hover:bg-red-50 hover:text-red-500 transition-all"
+                >
+                  Discard
+                </button>
+              </div>
             </div>
           )}
 
@@ -111,7 +136,7 @@ const MetadataCard: React.FC<MetadataCardProps> = ({ item, market, onRegenerate,
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                       SEO Optimized Title
-                      {market === Market.SPREADSHIRT && (
+                      {(market === Market.SPREADSHIRT || market === Market.ZAZZLE) && (
                         <span className={`ml-2 ${(item.metadata.title?.length || 0) > TITLE_LIMIT ? 'text-red-500' : 'text-blue-500'}`}>
                           ({item.metadata.title?.length || 0}/{TITLE_LIMIT})
                         </span>
@@ -158,7 +183,7 @@ const MetadataCard: React.FC<MetadataCardProps> = ({ item, market, onRegenerate,
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                       Meta Description
-                      {market === Market.SPREADSHIRT && (
+                      {(market === Market.SPREADSHIRT || market === Market.ZAZZLE) && (
                         <span className={`ml-2 ${(item.metadata.description?.length || 0) > DESC_LIMIT ? 'text-red-500' : 'text-blue-500'}`}>
                           ({item.metadata.description?.length || 0}/{DESC_LIMIT})
                         </span>
@@ -174,7 +199,7 @@ const MetadataCard: React.FC<MetadataCardProps> = ({ item, market, onRegenerate,
                   <textarea 
                     readOnly
                     value={item.metadata.description || ''}
-                    rows={2}
+                    rows={market === Market.ZAZZLE ? 4 : 2}
                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-sm font-medium text-slate-600 outline-none resize-none leading-relaxed"
                   />
                 </div>

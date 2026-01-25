@@ -15,7 +15,7 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfig>(() => {
-    const saved = localStorage.getItem('pod_master_configs_v3');
+    const saved = localStorage.getItem('pod_master_configs_v4');
     if (saved) return JSON.parse(saved);
     return {
       mistral: { isActive: true, status: 'disabled', apiKey: '' },
@@ -23,14 +23,23 @@ const App: React.FC = () => {
     };
   });
 
+  const providerConfigsRef = useRef(providerConfigs);
   useEffect(() => {
-    localStorage.setItem('pod_master_configs_v3', JSON.stringify(providerConfigs));
+    providerConfigsRef.current = providerConfigs;
+    localStorage.setItem('pod_master_configs_v4', JSON.stringify(providerConfigs));
   }, [providerConfigs]);
 
   const updateProviderStatus = (provider: ProviderType, status: 'active' | 'rate-limited' | 'error' | 'disabled') => {
     setProviderConfigs(prev => ({
       ...prev,
       [provider]: { ...prev[provider], status }
+    }));
+  };
+
+  const handleToggleProvider = (provider: ProviderType) => {
+    setProviderConfigs(prev => ({
+      ...prev,
+      [provider]: { ...prev[provider], isActive: !prev[provider].isActive }
     }));
   };
 
@@ -64,7 +73,7 @@ const App: React.FC = () => {
     
     try {
       const base64 = await fileToBase64(item.file);
-      const metadata = await generateMetadata(base64, item.file.type, market, providerConfigs, updateProviderStatus);
+      const metadata = await generateMetadata(base64, item.file.type, market, providerConfigsRef.current, updateProviderStatus);
       
       setFiles(prev => prev.map(f => f.id === item.id ? { 
         ...f, 
@@ -88,18 +97,29 @@ const App: React.FC = () => {
   const generateAll = async () => {
     if (isProcessing) return;
     
-    const hasKeys = providerConfigs.mistral.apiKey || providerConfigs.groq.apiKey;
+    const currentConfigs = providerConfigsRef.current;
+    const hasKeys = (currentConfigs.mistral.isActive && currentConfigs.mistral.apiKey) || 
+                    (currentConfigs.groq.isActive && currentConfigs.groq.apiKey);
+                    
     if (!hasKeys) {
-      alert("Please configure Mistral or Groq API key in Settings.");
+      alert("Please configure and enable at least one API key (Mistral or Groq) in Settings.");
       setIsSettingsOpen(true);
       return;
     }
 
     setIsProcessing(true);
     const pendingFiles = files.filter(f => f.status === 'pending' || f.status === 'error');
-    for (const file of pendingFiles) {
+    
+    for (let i = 0; i < pendingFiles.length; i++) {
+      const file = pendingFiles[i];
       await processFile(file);
+      
+      // Small delay between files to respect API tier concurrency limits
+      if (i < pendingFiles.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
     }
+    
     setIsProcessing(false);
   };
 
@@ -118,7 +138,11 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <Header onOpenSettings={() => setIsSettingsOpen(true)} configs={providerConfigs} />
+      <Header 
+        onOpenSettings={() => setIsSettingsOpen(true)} 
+        configs={providerConfigs} 
+        onToggleProvider={handleToggleProvider}
+      />
       
       <div className="flex flex-1 overflow-hidden relative">
         <Sidebar 
@@ -137,7 +161,7 @@ const App: React.FC = () => {
               <p className="text-slate-500 mt-2 font-medium">Automatic SEO Generation for {market}.</p>
               <div className="mt-4 flex items-center justify-center gap-4">
                  <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-200">
-                   <i className="fas fa-microchip mr-1"></i> Pixtral & Llama 3.2 Vision
+                   <i className="fas fa-microchip mr-1"></i> Mistral Large 3 Frontier
                  </span>
                  <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100">
                    <i className="fas fa-check-double mr-1"></i> SEO Compliant

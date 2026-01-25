@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Market } from '../types';
 
@@ -61,13 +60,32 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           </button>
+
+          <button 
+            onClick={() => setMarket(Market.ZAZZLE)}
+            className={`w-full p-4 rounded-2xl border-2 text-left transition-all relative overflow-hidden group ${
+              market === Market.ZAZZLE 
+                ? 'border-blue-600 bg-blue-50/50 shadow-sm' 
+                : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200'
+            }`}
+          >
+            <div className="flex items-center gap-3 relative z-10">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${market === Market.ZAZZLE ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                <i className="fas fa-palette"></i>
+              </div>
+              <div>
+                <span className={`font-bold block ${market === Market.ZAZZLE ? 'text-blue-900' : 'text-slate-700'}`}>Zazzle</span>
+                <span className="text-[10px] opacity-70 font-medium">Event & Gift Optimization</span>
+              </div>
+            </div>
+          </button>
         </div>
       </div>
 
       <div className="space-y-4">
         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] block">SEO Strategy</label>
         <div className="bg-slate-900 rounded-2xl p-5 text-xs text-slate-300 border border-slate-800 shadow-inner">
-          {market === Market.SPREADSHIRT ? (
+          {market === Market.SPREADSHIRT && (
             <div className="space-y-3">
               <div className="flex gap-3">
                 <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
@@ -82,7 +100,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <p>Exactly <span className="text-white font-bold">25 Tags</span> for internal rank stability.</p>
               </div>
             </div>
-          ) : (
+          )}
+          {market === Market.TEEPUBLIC && (
             <div className="space-y-3">
               <div className="flex gap-3">
                 <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
@@ -95,6 +114,22 @@ const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex gap-3">
                 <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
                 <p>Avoids keyword <span className="text-white font-bold">Cannibalization</span> between tags.</p>
+              </div>
+            </div>
+          )}
+          {market === Market.ZAZZLE && (
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
+                <p>Optimized for <span className="text-white font-bold">Gifting Occasions</span> and events.</p>
+              </div>
+              <div className="flex gap-3">
+                <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
+                <p>Descriptive <span className="text-white font-bold">Long-form Titles</span> (up to 100 chars).</p>
+              </div>
+              <div className="flex gap-3">
+                <i className="fas fa-check-circle text-blue-400 mt-0.5"></i>
+                <p>Detailed <span className="text-white font-bold">Product Narratives</span> (up to 500 chars).</p>
               </div>
             </div>
           )}
