@@ -10,8 +10,8 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onOpenSettings, configs, onToggleProvider }) => {
   const providers: { type: ProviderType; label: string; icon: string; color: string }[] = [
-    { type: 'mistral', label: 'Preview', icon: 'M', color: 'orange' },
-    { type: 'groq', label: 'Groq', icon: 'G', color: 'slate' },
+    { type: 'mistral', label: 'Frontier', icon: 'M', color: 'orange' },
+    { type: 'groq', label: 'Scout', icon: 'S', color: 'slate' },
   ];
 
   const getStatusColor = (provider: ProviderType) => {
@@ -40,7 +40,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, configs, onToggleProvid
         </div>
         <div>
           <h1 className="text-xl font-black text-slate-800 tracking-tight leading-none mb-1">POD Master</h1>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Mistral Large Preview Edition</p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Frontier & Scout Vision</p>
         </div>
       </div>
 

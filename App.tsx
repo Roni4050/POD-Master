@@ -59,12 +59,51 @@ const App: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
+  /**
+   * Optimizes image for AI vision models.
+   * Resizes to max 1024px and compresses as JPEG.
+   * Prevents "Request Entity Too Large" errors.
+   */
+  const optimizeAndEncodeImage = (file: File): Promise<{ base64: string; mimeType: string }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.onerror = () => reject(new Error("File parsing error"));
       reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1024; // Standard resolution for high-quality vision models
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height *= maxDim / width;
+              width = maxDim;
+            } else {
+              width *= maxDim / height;
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return reject(new Error("Failed to get canvas context"));
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Use image/jpeg with 0.8 quality for optimal size/detail ratio
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          resolve({
+            base64: dataUrl.split(',')[1],
+            mimeType: 'image/jpeg'
+          });
+        };
+        img.onerror = () => reject(new Error("Failed to load image for optimization"));
+      };
+      reader.onerror = () => reject(new Error("File reading error"));
     });
   };
 
@@ -72,8 +111,11 @@ const App: React.FC = () => {
     setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'processing', error: undefined } : f));
     
     try {
-      const base64 = await fileToBase64(item.file);
-      const metadata = await generateMetadata(base64, item.file.type, market, providerConfigsRef.current, updateProviderStatus);
+      // Step 1: Optimize image to avoid "Request Entity Too Large"
+      const { base64, mimeType } = await optimizeAndEncodeImage(item.file);
+      
+      // Step 2: Generate Metadata
+      const metadata = await generateMetadata(base64, mimeType, market, providerConfigsRef.current, updateProviderStatus);
       
       setFiles(prev => prev.map(f => f.id === item.id ? { 
         ...f, 
@@ -102,7 +144,7 @@ const App: React.FC = () => {
                     (currentConfigs.groq.isActive && currentConfigs.groq.apiKey);
                     
     if (!hasKeys) {
-      alert("Please configure and enable at least one API key (Mistral or Groq) in Settings.");
+      alert("Please configure and validate an API key in Settings.");
       setIsSettingsOpen(true);
       return;
     }
@@ -114,9 +156,8 @@ const App: React.FC = () => {
       const file = pendingFiles[i];
       await processFile(file);
       
-      // Small delay between files to respect API tier concurrency limits
       if (i < pendingFiles.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
     
@@ -158,13 +199,13 @@ const App: React.FC = () => {
           <div className="max-w-6xl mx-auto space-y-8">
             <div className="text-center pt-8">
               <h2 className="text-4xl font-black text-slate-800 tracking-tight">Bulk Metadata Suite</h2>
-              <p className="text-slate-500 mt-2 font-medium">Automatic SEO Generation for {market}.</p>
+              <p className="text-slate-500 mt-2 font-medium">Professional SEO Discovery for {market}.</p>
               <div className="mt-4 flex items-center justify-center gap-4">
                  <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-200">
-                   <i className="fas fa-microchip mr-1"></i> Mistral Large 3 Frontier
+                   <i className="fas fa-eye mr-1"></i> Mistral Large 3 Multimodal
                  </span>
                  <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100">
-                   <i className="fas fa-check-double mr-1"></i> SEO Compliant
+                   <i className="fas fa-check-double mr-1"></i> Image Optimized
                  </span>
               </div>
             </div>

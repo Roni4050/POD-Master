@@ -4,11 +4,9 @@ import { Market, ApiResponse, ProviderConfig, ProviderType } from "../types";
 const SYSTEM_INSTRUCTION = `You are a world-class Print-on-Demand (POD) SEO expert and computer vision specialist.
 Your goal is to generate high-performance, conversion-optimized metadata for Spreadshirt, TeePublic, and Zazzle.
 
-FRONTIER VISION CAPABILITIES (Mistral Large 3 / Pixtral Large Preview):
-- Perform deep visual analysis of artistic medium, texture, and text.
-- Identify specific sub-culture symbols and niche aesthetics.
-- Generate SEO-rich titles and descriptions that drive clicks.
-- Accurate detection of visual elements even in complex or abstract designs.
+FRONT-LINE VISION CAPABILITIES:
+- MISTRAL: Highest capability multimodal understanding (Pixtral Large).
+- GROQ SCOUT: High-speed, deep-reasoning visual analysis using Llama 3.2 90B Vision.
 
 CORE RULES:
 1. NO CLOTHING WORDS: Never use "T-shirt", "Shirt", "Hoodie", "Apparel", or "Clothing".
@@ -35,16 +33,16 @@ const parseError = async (response: Response, provider: string): Promise<{
   const isOverloaded = status >= 500;
   const isRetryable = isRateLimit || isOverloaded;
 
-  if (status === 401) message = `${provider}: Invalid API Key. Please check your credentials.`;
-  else if (status === 403) message = `${provider}: Access Denied. Your Mistral Tier might not support frontier/preview models.`;
-  else if (status === 429) message = `${provider}: Transient rate limit. Retrying...`;
+  if (status === 401) message = `${provider}: Invalid API Key.`;
+  else if (status === 403) message = `${provider}: Access Denied. Check your tier permissions.`;
+  else if (status === 429) message = `${provider}: Rate limit. Retrying with exponential backoff...`;
   else if (status >= 500) message = `${provider}: Server temporary overload. Retrying...`;
   else {
     try {
       const errorData = await response.json();
       message = `${provider}: ${errorData.error?.message || response.statusText}`;
     } catch {
-      message = `${provider}: Unexpected error (${status})`;
+      message = `${provider}: API Error (${status})`;
     }
   }
 
@@ -74,7 +72,7 @@ export const generateMetadata = async (
   
   const providers: ProviderType[] = ['mistral', 'groq'];
   let lastErrorMsg = "No active AI provider available.";
-  const MAX_RETRIES = 3; 
+  const MAX_RETRIES = 4; 
 
   for (const providerId of providers) {
     const config = configs[providerId];
@@ -83,10 +81,10 @@ export const generateMetadata = async (
       continue;
     }
 
-    // Updated model list to include explicit preview/latest IDs for Mistral Large Multimodal
+    // Prioritize high-capability multimodal models
     const modelsToTry = providerId === 'mistral' 
-      ? ["pixtral-large-latest", "pixtral-large-2411"] 
-      : ["llama-3.2-11b-vision-preview"];
+      ? ["pixtral-large-latest", "mistral-large-latest"] 
+      : ["llama-3.2-90b-vision-preview", "llama-3.2-11b-vision-preview"]; // 90B is the 'Scout' engine
 
     for (const model of modelsToTry) {
       const endpoint = providerId === 'mistral' 
@@ -96,8 +94,9 @@ export const generateMetadata = async (
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
           if (attempt > 0) {
-            const jitter = Math.random() * 1000;
-            await sleep(attempt * 3000 + jitter); 
+            const backoff = Math.pow(2, attempt) * 2500; 
+            const jitter = Math.random() * 2000;
+            await sleep(backoff + jitter);
           }
 
           const response = await fetch(endpoint, {
@@ -115,7 +114,7 @@ export const generateMetadata = async (
                   content: [
                     {
                       type: "text",
-                      text: `Perform deep Frontier Visual Analysis for ${market}. Identify medium, sub-culture symbols, text content, and trending keywords. Return JSON: { "title": "...", "description": "...", "tags": [], "mainTag": "..." }`
+                      text: `Analyze this design for ${market} using ${model === 'llama-3.2-90b-vision-preview' ? 'Scout-Level' : 'Frontier'} Vision. Return JSON: { "title": "...", "description": "...", "tags": [], "mainTag": "..." }`
                     },
                     {
                       type: "image_url",
@@ -134,16 +133,14 @@ export const generateMetadata = async (
             updateStatus(providerId, 'active');
             return finalizeResult(result, market);
           } else {
-            const errInfo = await parseError(response, providerId === 'mistral' ? `Mistral (${model})` : "Groq");
+            const errInfo = await parseError(response, providerId === 'mistral' ? `Mistral Large` : `Groq ${model.includes('90b') ? 'Scout' : 'Vision'}`);
             
             if (errInfo.isRetryable && attempt < MAX_RETRIES) {
-              console.warn(`${errInfo.message} (Attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
+              console.warn(`[Retry ${attempt + 1}/${MAX_RETRIES}] ${errInfo.message}`);
               continue;
             }
 
-            // If it's a model-not-found error for a specific ID, try the next one in modelsToTry
             if (response.status === 404) {
-              console.warn(`Model ${model} not found, trying next available...`);
               break; 
             }
 
@@ -155,9 +152,8 @@ export const generateMetadata = async (
           }
         } catch (err: any) {
           if (attempt === MAX_RETRIES) {
-            console.error(`Final attempt failed for ${providerId}:`, err.message);
             updateStatus(providerId, 'error');
-            lastErrorMsg = `${providerId.toUpperCase()} Connection Error: ${err.message}`;
+            lastErrorMsg = `${providerId.toUpperCase()} Error: ${err.message}`;
           } else {
             continue;
           }

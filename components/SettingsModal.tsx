@@ -21,7 +21,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, configs,
       ...prev,
       [provider]: { ...prev[provider], apiKey: key }
     }));
-    // Reset status when key changes
     setVerificationStatus(prev => ({ ...prev, [provider]: 'idle' }));
   };
 
@@ -60,7 +59,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, configs,
         <div className="p-8 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">AI Configuration</h2>
-            <p className="text-sm text-slate-500 font-medium">Mistral Large Preview & Frontier Models</p>
+            <p className="text-sm text-slate-500 font-medium">Frontier & Scout Vision Systems</p>
           </div>
           <button 
             onClick={onClose}
@@ -83,8 +82,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, configs,
                     verificationStatus.mistral === 'verified' ? 'bg-emerald-500' : 'bg-orange-600'
                   }`}>M</div>
                   <div>
-                    <span className="font-bold text-slate-700 block">Mistral Large Preview</span>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Pixtral Multimodal Frontier</span>
+                    <span className="font-bold text-slate-700 block">Mistral Large 3</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Multimodal Frontier</span>
                   </div>
                 </div>
                 {configs.mistral.apiKey && (
@@ -115,9 +114,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, configs,
                   }`}
                 />
               </div>
-              <p className="mt-3 text-[10px] text-slate-400 font-medium italic">
-                * Optimized for Pixtral Large (Mistral Large 3 Preview) multimodal analysis.
-              </p>
             </div>
 
             <div className={`p-6 rounded-3xl border-2 transition-all ${
@@ -128,10 +124,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, configs,
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-black shadow-lg ${
                     verificationStatus.groq === 'verified' ? 'bg-emerald-500' : 'bg-slate-900'
-                  }`}>G</div>
+                  }`}>S</div>
                   <div>
-                    <span className="font-bold text-slate-700 block">Groq Cloud</span>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Llama 3.2 Vision Fallback</span>
+                    <span className="font-bold text-slate-700 block">Groq Scout</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Llama 3.2 90B Scout Model</span>
                   </div>
                 </div>
                 {configs.groq.apiKey && verificationStatus.groq !== 'verified' && (
@@ -150,6 +146,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, configs,
                 onChange={(e) => handleKeyChange('groq', e.target.value)}
                 className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-mono outline-none focus:border-indigo-400 transition-all"
               />
+              <p className="mt-3 text-[10px] text-slate-400 font-medium italic">
+                * High-fidelity 90B Scout model handles complex visual discovery.
+              </p>
             </div>
           </div>
         </div>
